@@ -48,6 +48,10 @@ def main(
     catsim_fpath: str = typer.Option(),
     out_dir: str = typer.Option(),
     scan_or_vmap: str = typer.Option(),
+    cache_dir: str = typer.Option(
+        default=str(Path(__file__).resolve().parents[1] / "output" / "cache"),
+        help="Folder to cache GalSim good sizes (shared by all runs).",
+    ),
     buffer: int = typer.Option(default=4),
     seed: int = typer.Option(default=42),
     max_n_iters: int = typer.Option(default=5),
@@ -82,7 +86,9 @@ def main(
         cat=cat,
         psf=ref_galsim_psf,
         overwrite=False,
-        out_path=out_root_path,
+        out_path=Path(cache_dir),
+        # same reference PSF as timing_tests_general.py --psf-type vary-moffat, so the
+        # two scripts share one cache file
         suffix="vary-moffat",
     )
     cat["good_size"] = good_sizes

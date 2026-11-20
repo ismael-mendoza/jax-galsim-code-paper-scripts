@@ -628,6 +628,10 @@ def prepare_catalog(
 def get_good_sizes_galsim(
     *, cat, psf, suffix: str, out_path: Path, overwrite: bool = False
 ):
+    # one cache folder is shared by all runs (output/cache); the suffix must identify
+    # the reference PSF (catalog cuts are checked through the catalog length below)
+    out_path = Path(out_path)
+    out_path.mkdir(parents=True, exist_ok=True)
     cache_fpath = out_path / f"good_sizes-{suffix}.npz"
     if Path(cache_fpath).exists() and not overwrite:
         print(f"INFO: Loading good sizes from file: {cache_fpath}")
@@ -653,7 +657,11 @@ def get_good_sizes_galsim(
 
         _good_sizes = np.array(_good_sizes)
         _good_fft_sizes = np.array(_good_fft_sizes)
-        np.savez(cache_fpath, good_sizes=_good_sizes, good_fft_sizes=_good_fft_sizes)
+        # write to a temporary file, then rename, so that another run reading the
+        # shared cache never sees a partly written file
+        tmp_fpath = out_path / f"good_sizes-{suffix}.tmp{os.getpid()}.npz"
+        np.savez(tmp_fpath, good_sizes=_good_sizes, good_fft_sizes=_good_fft_sizes)
+        os.replace(tmp_fpath, cache_fpath)
 
     return _good_sizes, _good_fft_sizes
 

@@ -33,7 +33,7 @@ cd /home/ismael/scratch/jax-galsim-code-paper-scripts
 TIMING_DIR="output/timing_results"  # Table 2 input (paper/table2_timing.py)
 PROFILE_DIR="output/profiles"
 GPU_DIR="output/gpu_results"  # Figure A2 input (paper/figureA2_cpu_gpu.py)
-CACHE_DIR="output/cache"  # GalSim good sizes for the Figure 2 scene
+CACHE_DIR="output/cache"  # GalSim good sizes, shared by all runs (and gpu-smoke.sbatch)
 CATSIM="output/OneDegSq.fits"
 N_SAMPLES=1000  # scenes per timing run
 mkdir -p ${TIMING_DIR} ${PROFILE_DIR} ${GPU_DIR} ${CACHE_DIR}
@@ -47,21 +47,21 @@ ${RUN} -c "import jax; print(jax.__version__, jax.devices())"
 # ---------------------------------------------------------------- 1. timing (Table 2)
 echo "=== timing runs: $(date)"
 
-${RUN} bin/timing_tests_general.py --stamp-slen-bins-str '63,83,103,250' --max-n-gals-bins-str '65,20,5,3' --fft-size-bins-str "128,128,128,256" --image-slen 250 --max-n-gals-global 150 --out-dir ${TIMING_DIR} --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --include-outliers --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --n-samples ${N_SAMPLES}
+${RUN} bin/timing_tests_general.py --stamp-slen-bins-str '63,83,103,250' --max-n-gals-bins-str '65,20,5,3' --fft-size-bins-str "128,128,128,256" --image-slen 250 --max-n-gals-global 150 --out-dir ${TIMING_DIR} --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --include-outliers --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --cache-dir ${CACHE_DIR} --n-samples ${N_SAMPLES}
 
-${RUN} bin/timing_tests_general.py --stamp-slen-bins-str '63,83,103,250,1000' --max-n-gals-bins-str '1050,300,40,20,3' --fft-size-bins-str "128,128,128,256,1024" --image-slen 1000 --max-n-gals-global 2000 --out-dir ${TIMING_DIR} --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --include-outliers --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --n-samples ${N_SAMPLES}
+${RUN} bin/timing_tests_general.py --stamp-slen-bins-str '63,83,103,250,1000' --max-n-gals-bins-str '1050,300,40,20,3' --fft-size-bins-str "128,128,128,256,1024" --image-slen 1000 --max-n-gals-global 2000 --out-dir ${TIMING_DIR} --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --include-outliers --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --cache-dir ${CACHE_DIR} --n-samples ${N_SAMPLES}
 
-${RUN} bin/timing_tests_general.py --out-dir ${TIMING_DIR} --stamp-slen-bins-str '63,83,121' --max-n-gals-bins-str '65,20,10' --fft-size-bins-str "128,128,128" --image-slen 250 --max-n-gals-global 150 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --n-samples ${N_SAMPLES}
+${RUN} bin/timing_tests_general.py --out-dir ${TIMING_DIR} --stamp-slen-bins-str '63,83,121' --max-n-gals-bins-str '65,20,10' --fft-size-bins-str "128,128,128" --image-slen 250 --max-n-gals-global 150 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --cache-dir ${CACHE_DIR} --n-samples ${N_SAMPLES}
 
-${RUN} bin/timing_tests_general.py --out-dir ${TIMING_DIR} --stamp-slen-bins-str '63,83,123' --max-n-gals-bins-str '1050,300,50' --fft-size-bins-str "128,128,128" --image-slen 1000 --max-n-gals-global 2000 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --n-samples ${N_SAMPLES}
+${RUN} bin/timing_tests_general.py --out-dir ${TIMING_DIR} --stamp-slen-bins-str '63,83,123' --max-n-gals-bins-str '1050,300,50' --fft-size-bins-str "128,128,128" --image-slen 1000 --max-n-gals-global 2000 --max-n-iters 5 --psf-type "vary-moffat" --seed 45 --scan-or-vmap 'scatter-vmap' --cpu-or-gpu 'gpu' --catsim-fpath ${CATSIM} --cache-dir ${CACHE_DIR} --n-samples ${N_SAMPLES}
 
 # ---------------------------------------------------------------- 2. roofline profiles
 # same settings as gpu-roofline-scene-profile.sbatch, plus 3 draws per trace
 echo "=== roofline profiles: $(date)"
 
-${RUN} bin/profile_scene_gpu.py --stamp-slen-bins-str "63,83,103,250" --max-n-gals-bins-str "65,20,5,3" --fft-size-bins-str "128,128,128,256" --image-slen 250 --max-n-gals-global 150 --out-dir ${PROFILE_DIR} --max-n-iters 5 --seed 42 --scan-or-vmap 'scatter-vmap' --catsim-fpath ${CATSIM} --n-repeats 3
+${RUN} bin/profile_scene_gpu.py --stamp-slen-bins-str "63,83,103,250" --max-n-gals-bins-str "65,20,5,3" --fft-size-bins-str "128,128,128,256" --image-slen 250 --max-n-gals-global 150 --out-dir ${PROFILE_DIR} --max-n-iters 5 --seed 42 --scan-or-vmap 'scatter-vmap' --catsim-fpath ${CATSIM} --cache-dir ${CACHE_DIR} --n-repeats 3
 
-${RUN} bin/profile_scene_gpu.py --stamp-slen-bins-str "63,83,103,250,1000" --max-n-gals-bins-str "1050,300,40,20,3" --fft-size-bins-str "128,128,128,256,1024" --image-slen 1000 --max-n-gals-global 2000 --out-dir ${PROFILE_DIR} --max-n-iters 5 --seed 42 --scan-or-vmap 'scatter-vmap' --catsim-fpath ${CATSIM} --n-repeats 3
+${RUN} bin/profile_scene_gpu.py --stamp-slen-bins-str "63,83,103,250,1000" --max-n-gals-bins-str "1050,300,40,20,3" --fft-size-bins-str "128,128,128,256,1024" --image-slen 1000 --max-n-gals-global 2000 --out-dir ${PROFILE_DIR} --max-n-iters 5 --seed 42 --scan-or-vmap 'scatter-vmap' --catsim-fpath ${CATSIM} --cache-dir ${CACHE_DIR} --n-repeats 3
 
 # ---------------------------------------------------------------- 3. CPU versus GPU scene
 # Figure 2 scene; copy output/gpu_results/ back and run `make -C paper figureA2`

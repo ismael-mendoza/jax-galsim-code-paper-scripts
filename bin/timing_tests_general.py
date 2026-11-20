@@ -57,6 +57,10 @@ def main(
         Path(__file__).resolve().parents[1] / "output" / "OneDegSq.fits"
     ),
     out_dir: str = typer.Option(),
+    cache_dir: str = typer.Option(
+        default=str(Path(__file__).resolve().parents[1] / "output" / "cache"),
+        help="Folder to cache GalSim good sizes (shared by all runs).",
+    ),
     scan_or_vmap: str = typer.Option(default="scan"),
     cpu_or_gpu: str = typer.Option(default="cpu"),
     psf_type: str = typer.Option(default="gaussian"),
@@ -159,7 +163,7 @@ def main(
         cat=cat,
         psf=ref_galsim_psf,
         overwrite=False,
-        out_path=out_root_path,
+        out_path=Path(cache_dir),
         suffix=psf_type,
     )
     cat["good_size"] = good_sizes

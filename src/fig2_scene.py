@@ -76,8 +76,9 @@ def load_scene(catsim_fpath: Path, cache_dir: Path):
     good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=psf_galsim(),
+        max_mag=MAX_MAG,
+        min_hlr=0.0,
         out_path=cache_dir,
-        suffix=f"moffat-fwhm{PSF_FWHM}-imag{MAX_MAG:g}",
     )
     cat["good_size"] = good_sizes
     cat["good_fft_size"] = good_fft_sizes

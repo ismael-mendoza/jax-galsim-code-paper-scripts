@@ -162,9 +162,10 @@ def main(
     good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=ref_galsim_psf,
+        max_mag=max_mag,
+        min_hlr=min_hlr,
         overwrite=False,
         out_path=Path(cache_dir),
-        suffix=psf_type,
     )
     cat["good_size"] = good_sizes
     cat["good_fft_size"] = good_fft_sizes

@@ -625,14 +625,42 @@ def prepare_catalog(
     return fcat
 
 
+def good_sizes_cache_name(psf, *, max_mag: float, min_hlr: float) -> str:
+    """Cache file name for GalSim good sizes, from the reference PSF and catalog cuts.
+
+    Runs with the same PSF and cuts share one file, e.g.
+    `good_sizes-moffat-fwhm1-beta2.5-imag27-hlr0.npz`.
+    """
+    if isinstance(psf, galsim.Moffat):
+        assert psf.trunc == 0, "truncated Moffat PSFs are not in the cache name"
+        psf_str = f"moffat-fwhm{psf.fwhm:g}-beta{psf.beta:g}"
+    elif isinstance(psf, galsim.Gaussian):
+        psf_str = f"gaussian-fwhm{psf.fwhm:g}"
+    else:
+        raise ValueError(f"no cache name for PSF {psf!r}")
+    return f"good_sizes-{psf_str}-imag{max_mag:g}-hlr{min_hlr:g}.npz"
+
+
 def get_good_sizes_galsim(
-    *, cat, psf, suffix: str, out_path: Path, overwrite: bool = False
+    *,
+    cat,
+    psf,
+    max_mag: float,
+    min_hlr: float,
+    out_path: Path,
+    overwrite: bool = False,
 ):
-    # one cache folder is shared by all runs (output/cache); the suffix must identify
-    # the reference PSF (catalog cuts are checked through the catalog length below)
+    """GalSim good sizes (and FFT sizes) of each galaxy in `cat`, drawn with `psf`.
+
+    `cat` must come from `prepare_catalog(..., max_mag=max_mag, min_hlr=min_hlr)`;
+    the cuts and the PSF name the cache file in `out_path`, which all runs share
+    (output/cache).
+    """
     out_path = Path(out_path)
     out_path.mkdir(parents=True, exist_ok=True)
-    cache_fpath = out_path / f"good_sizes-{suffix}.npz"
+    cache_fpath = out_path / good_sizes_cache_name(
+        psf, max_mag=max_mag, min_hlr=min_hlr
+    )
     if Path(cache_fpath).exists() and not overwrite:
         print(f"INFO: Loading good sizes from file: {cache_fpath}")
         dt = np.load(cache_fpath)
@@ -659,7 +687,7 @@ def get_good_sizes_galsim(
         _good_fft_sizes = np.array(_good_fft_sizes)
         # write to a temporary file, then rename, so that another run reading the
         # shared cache never sees a partly written file
-        tmp_fpath = out_path / f"good_sizes-{suffix}.tmp{os.getpid()}.npz"
+        tmp_fpath = cache_fpath.with_name(f"{cache_fpath.stem}.tmp{os.getpid()}.npz")
         np.savez(tmp_fpath, good_sizes=_good_sizes, good_fft_sizes=_good_fft_sizes)
         os.replace(tmp_fpath, cache_fpath)
 

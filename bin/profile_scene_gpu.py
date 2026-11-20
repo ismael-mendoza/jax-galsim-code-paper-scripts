@@ -19,7 +19,10 @@ from pathlib import Path
 import galsim
 import jax
 import jax.profiler
+import jax_galsim as jgs
 import typer
+from jax import block_until_ready, device_put, jit, random
+
 from draw_scene_functions import (
     draw_all_bins_jgs,
     draw_jgs_scan_stamps,
@@ -30,9 +33,6 @@ from draw_scene_functions import (
     prepare_catalog,
     prepare_per_bin_samples,
 )
-from jax import block_until_ready, device_put, jit, random
-
-import jax_galsim as jgs
 
 BETA_PSF = 2.5
 MIN_FWHM_PSF = 0.7
@@ -85,11 +85,10 @@ def main(
     good_sizes, good_fft_sizes = get_good_sizes_galsim(
         cat=cat,
         psf=ref_galsim_psf,
+        max_mag=max_mag,
+        min_hlr=min_hlr,
         overwrite=False,
         out_path=Path(cache_dir),
-        # same reference PSF as timing_tests_general.py --psf-type vary-moffat, so the
-        # two scripts share one cache file
-        suffix="vary-moffat",
     )
     cat["good_size"] = good_sizes
     cat["good_fft_size"] = good_fft_sizes

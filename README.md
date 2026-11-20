@@ -18,5 +18,7 @@ The CatSim catalog is expected at `output/OneDegSq.fits` (locally and on the clu
   the environment, so any script can import them.
 - `bin/`: timing, profiling and CPU-versus-GPU runs (GPU node).
 - `sbatch/gpu-master.sbatch`: makes all GPU results in `output/`.
+- `sbatch/gpu-smoke.sbatch`: quick check of the master job on a small, usually idle
+  MIG slice of an A100; writes only to `output/smoke/`.
 - `paper/`: figures and tables; `make -C paper` writes them to the paper repository.
 - `output/`: results (`timing_results/`, `gpu_results/`, `profiles/`, `cache/`).

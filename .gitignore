@@ -221,3 +221,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Misc.
+.DS_Store
+uv.lock
+
+# Large or regenerable outputs
+output/
+output/OneDegSq.fits

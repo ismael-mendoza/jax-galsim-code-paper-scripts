@@ -10,7 +10,8 @@ inside `--results-dir` (default `output/timing_results`). A run with no folder g
 empty row.
 
 Notes on the timing script:
-- JAX-GalSim compilation is not timed (the first sample is drawn once before timing).
+- JAX-GalSim compilation is timed separately (`t_compile`: first call minus the first
+  timed draw) and given in its own column; it is not in the per-image times.
 - The first transfer of each run includes device warm-up (about 0.4 s), which raises
   the mean transfer time; the median is not affected.
 """
@@ -51,17 +52,19 @@ def summarize(fpath: Path) -> dict:
         assert len(d[key]) == out["n"]
         out[key] = (np.mean(d[key]), np.median(d[key]))
     out["speedup"] = out["t_galsim"][1] / out["t_jgalsim"][1]
+    out["t_compile"] = float(d["t_compile"])
     return out
 
 
 def table_row(image_slen: int, outliers: str, s: dict | None) -> str:
     cells = [f"${image_slen} \\times {image_slen}$", outliers]
     if s is None:
-        cells += [""] * 7
+        cells += [""] * 8
     else:
         for key in ("t_galsim", "t_jgalsim", "t_transfer"):
             cells += [FMT.format(v) for v in s[key]]
         cells.append(f"{s['speedup']:.1f}")
+        cells.append(f"{s['t_compile']:.0f}")
     return " & ".join(cells) + " \\\\"
 
 
@@ -75,12 +78,12 @@ def make_table(rows: list[str], n_samples: list[int]) -> str:
         "\\footnotesize",
         "\\caption{Timing comparison for drawing full-scene images}",
         "\\label{tab:timing}",
-        "\\begin{tabular}{llrrrrrrr}",
+        "\\begin{tabular}{llrrrrrrrr}",
         "\\toprule",
         " & & \\multicolumn{2}{c}{GalSim (s)} & \\multicolumn{2}{c}{JAX-GalSim (s)}"
-        " & \\multicolumn{2}{c}{Transfer (s)} & \\\\",
+        " & \\multicolumn{2}{c}{Transfer (s)} & & \\\\",
         "\\cmidrule(lr){3-4} \\cmidrule(lr){5-6} \\cmidrule(lr){7-8}",
-        "Image (pixels) & Outliers & Mean & Median & Mean & Median & Mean & Median & Speedup \\\\",
+        "Image (pixels) & Outliers & Mean & Median & Mean & Median & Mean & Median & Speedup & Compile (s) \\\\",
         "\\midrule",
         *rows,
         "\\bottomrule",
@@ -91,7 +94,7 @@ def make_table(rows: list[str], n_samples: list[int]) -> str:
         + n_str
         + " scenes. The `JAX-GalSim' column does not include compilation or transfer time."
         " `Transfer' is the time to bin the galaxy parameters and move them to the GPU. "
-        "`Speedup' is the ratio of the median GalSim and JAX-GalSim times, without transfer or compilation times. Our results indicate that compilation times are negligible in all cases for JAX-GalSim and are not included. For more details see Section \\FIXME{YY}.}",
+        "`Speedup' is the ratio of the median GalSim and JAX-GalSim times, without transfer or compilation times. `Compile' is the one-time JAX-GalSim compilation time of each run (all size bins), not included in any other column. For more details see Section \\FIXME{YY}.}",
         "\\end{table*}",
     ]
     return "\n".join(lines) + "\n"

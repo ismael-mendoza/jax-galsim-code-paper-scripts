@@ -5,7 +5,8 @@ against the finite-difference step, for the metacal shear response of Figure 3.
 Same noiseless galaxy, metacal steps and fixed target PSF (Gaussian FWHM 1.0 arcsec,
 as in `test_metacal_jax.py`) as Figure 3. For each step h, the largest per-pixel
 difference between the central-difference response, (I(h) - I(-h)) / 2h, and the
-autodiff response, relative to the largest autodiff response; the worse of g1 and g2.
+autodiff response, relative to the largest autodiff response; one curve each for g1
+and g2.
 
 Not used in the paper: `--dilate` uses the target dilated by 1 + 2|g| (as in ngmix);
 `--noise` uses the noisy galaxy (flux S/N = 20) with the noise correction, and always
@@ -70,10 +71,20 @@ def main(
     )  # (len(STEPS), 2)
     for h, e in zip(STEPS, err):
         print(f"h = {h:.0e}: g1 {e[0]:.1e}  g2 {e[1]:.1e}")
-    worst = err.max(axis=1)
 
     fig, ax = plt.subplots(figsize=(COLUMN_WIDTH, 2.4), constrained_layout=True)
-    ax.loglog(STEPS, worst, "-", marker="o", ms=2.5, lw=1, color="C0")
+    for i in range(2):
+        ax.loglog(
+            STEPS,
+            err[:, i],
+            "-",
+            marker="o",
+            ms=2.5,
+            lw=1,
+            color=f"C{i}",
+            label=rf"$g_{i + 1}$",
+        )
+    ax.legend(loc="upper center", fontsize=7, frameon=False)
     ax.axvline(METACAL_STEP, color="0.5", ls=":", lw=0.8)
     ax.text(
         METACAL_STEP * 0.8,

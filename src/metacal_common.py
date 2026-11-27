@@ -6,8 +6,8 @@ out step by step in both GalSim and JAX-GalSim:
 1. the observed galaxy image and the PSF image become `InterpolatedImage`s (lanczos15);
 2. the galaxy is deconvolved by the PSF, sheared by (g1, g2), and reconvolved with the
    target PSF, drawn with a fixed FFT size and `method="no_pixel"`. The target is a
-   Gaussian fit to the PSF dilated by 1 + 2|g| (as in metacal); the PSF here is a round
-   Gaussian, so the fit is the PSF itself;
+   fixed round Gaussian slightly wider than the PSF (`target_fwhm`, default 1.0 arcsec
+   as in `test_metacal_jax.py`; the PSF is 0.9 arcsec);
 3. noise correction (noisy case only): a second, independent noise image is rotated by
    90 degrees, goes through step 2 with the same shear, is rotated back, and is added.
    A 90-degree rotation flips the sign of (g1, g2), so this cancels, on average, the
@@ -17,11 +17,16 @@ The per-pixel shear response is the derivative of the metacal image with respect
 (g1, g2) at g = 0: by autodiff (`jax.jacfwd`) in JAX-GalSim, and by central finite
 differences of GalSim's metacal image.
 
-|g| has a kink at g = 0, so the image is not differentiable there through the dilation.
-Central differences use the same dilation for +h and -h, so they converge to the
-symmetric derivative, in which the dilation term cancels: the response with the
-dilation held at its g = 0 value. Autodiff gets the same derivative by holding the
-dilation fixed (`jax.lax.stop_gradient`).
+Optional dilation (`dilate=True`, not used in the paper; always on with `noise=True`):
+the target is instead the PSF dilated by 1 + 2|g| (a Gaussian fit to the PSF, as in
+ngmix metacal; the PSF is a round Gaussian, so the fit is the PSF itself), which keeps
+the deconvolved high-k noise down. |g| has a kink at g = 0, so the image is not
+differentiable there through the dilation. Central differences use the same dilation
+for +h and -h, so they converge to the symmetric derivative, in which the dilation term
+cancels: the response with the dilation held at its g = 0 value. Autodiff gets the same
+derivative by holding the dilation fixed (`jax.lax.stop_gradient`). The dilation also
+adds an O(h) difference between FD and autodiff (about 3.7 h noiseless): FD at step h
+differentiates an image whose target is dilated by 1 + 2h.
 
 Everything is float64: `drawImage` returns float32 by default in both codes, and
 JAX-GalSim's `InterpolatedImage` keeps float32 inputs as float32.
@@ -57,7 +62,8 @@ GALAXY = {
 }
 
 PSF_FWHM = 0.9  # arcsec, round Gaussian, as in test_metacal_jax.py
-# target PSF: Gaussian(fwhm=PSF_FWHM) dilated by 1 + 2|g| (see `_dilation`)
+TARGET_FWHM = 1.0  # arcsec, fixed round Gaussian target, as in test_metacal_jax.py
+# with dilate=True the target is Gaussian(fwhm=PSF_FWHM) dilated by 1 + 2|g| instead
 
 SNR = 20.0  # flux S/N, sqrt(sum I^2) / sigma for the noiseless image
 SEED = 42
@@ -96,7 +102,20 @@ def _dilation_jgs(g):
     return jax.lax.stop_gradient(1.0 + 2.0 * jnp.sqrt(g[0] ** 2 + g[1] ** 2))
 
 
-def _gs_render(img, psf_im, g1, g2):
+def _target_gs(g1, g2, target_fwhm):
+    """Fixed Gaussian(target_fwhm), or the dilated PSF if target_fwhm is None."""
+    if target_fwhm is None:
+        return galsim.Gaussian(fwhm=PSF_FWHM).dilate(_dilation_gs(g1, g2))
+    return galsim.Gaussian(fwhm=target_fwhm)
+
+
+def _target_jgs(g, target_fwhm):
+    if target_fwhm is None:
+        return jgs.Gaussian(fwhm=PSF_FWHM).dilate(_dilation_jgs(g))
+    return jgs.Gaussian(fwhm=target_fwhm)
+
+
+def _gs_render(img, psf_im, g1, g2, target_fwhm):
     ii = galsim.InterpolatedImage(
         galsim.ImageD(img), scale=PIXEL_SCALE, x_interpolant=INTERPOLANT
     )
@@ -105,7 +124,7 @@ def _gs_render(img, psf_im, g1, g2):
     )
     prof = galsim.Convolve(
         galsim.Convolve(ii, galsim.Deconvolve(ip)).shear(g1=g1, g2=g2),
-        galsim.Gaussian(fwhm=PSF_FWHM).dilate(_dilation_gs(g1, g2)),
+        _target_gs(g1, g2, target_fwhm),
         gsparams=galsim.GSParams(minimum_fft_size=FFT, maximum_fft_size=FFT),
     )
     return prof.drawImage(
@@ -113,7 +132,7 @@ def _gs_render(img, psf_im, g1, g2):
     ).array
 
 
-def _jgs_render(img, psf_im, g):
+def _jgs_render(img, psf_im, g, target_fwhm):
     ii = jgs.InterpolatedImage(
         jgs.ImageD(img), scale=PIXEL_SCALE, x_interpolant=INTERPOLANT
     )
@@ -122,7 +141,7 @@ def _jgs_render(img, psf_im, g):
     )
     prof = jgs.Convolve(
         jgs.Convolve(ii, jgs.Deconvolve(ip)).shear(g1=g[0], g2=g[1]),
-        jgs.Gaussian(fwhm=PSF_FWHM).dilate(_dilation_jgs(g)),
+        _target_jgs(g, target_fwhm),
         gsparams=jgs.GSParams(minimum_fft_size=FFT, maximum_fft_size=FFT),
     )
     return prof.drawImage(
@@ -130,24 +149,29 @@ def _jgs_render(img, psf_im, g):
     ).array
 
 
-def metacal_galsim(img, psf_im, nse, g1, g2):
-    """GalSim metacal image, with the noise correction if `nse` is not None."""
-    out = _gs_render(img, psf_im, g1, g2)
+def metacal_galsim(img, psf_im, nse, g1, g2, target_fwhm=TARGET_FWHM):
+    """GalSim metacal image, with the noise correction if `nse` is not None.
+
+    target_fwhm=None: target is the PSF dilated by 1 + 2|g|.
+    """
+    out = _gs_render(img, psf_im, g1, g2, target_fwhm)
     if nse is None:
         return out
-    return out + np.rot90(_gs_render(np.rot90(nse, 1), psf_im, g1, g2), 3)
+    return out + np.rot90(_gs_render(np.rot90(nse, 1), psf_im, g1, g2, target_fwhm), 3)
 
 
-def make_metacal_jgs(img, psf_im, nse):
+def make_metacal_jgs(img, psf_im, nse, target_fwhm=TARGET_FWHM):
     """JAX-GalSim metacal image as a function of g = (g1, g2), as `metacal_galsim`."""
     img, psf_im = jnp.asarray(img), jnp.asarray(psf_im)
     nse = None if nse is None else jnp.asarray(nse)
 
     def f(g):
-        out = _jgs_render(img, psf_im, g)
+        out = _jgs_render(img, psf_im, g, target_fwhm)
         if nse is None:
             return out
-        return out + jnp.rot90(_jgs_render(jnp.rot90(nse, 1), psf_im, g), 3)
+        return out + jnp.rot90(
+            _jgs_render(jnp.rot90(nse, 1), psf_im, g, target_fwhm), 3
+        )
 
     return f
 
@@ -172,22 +196,29 @@ def fd_vs_ad(ad, fd):
     )
 
 
-def setup(noise=False):
+def setup(noise=False, dilate=False, target_fwhm=TARGET_FWHM):
     """Images, GalSim metacal function, JAX-GalSim metacal function, and checks at g = 0.
 
     noise=True: flux S/N = SNR plus the noise correction; noise=False: noiseless galaxy.
+    dilate=True: target is the PSF dilated by 1 + 2|g| (target_fwhm is then ignored);
+    dilate=False: fixed Gaussian target of FWHM target_fwhm. The noisy case always uses
+    the dilation (it is what keeps the deconvolved noise down), so noise=True turns it on.
     """
+    dilate = dilate or noise
+    tf = None if dilate else target_fwhm
     img, psf_im, nse = make_images(noise)
 
     def f_gs(g1, g2):
-        return metacal_galsim(img, psf_im, nse, g1, g2)
+        return metacal_galsim(img, psf_im, nse, g1, g2, tf)
 
-    f_jgs = make_metacal_jgs(img, psf_im, nse)
+    f_jgs = make_metacal_jgs(img, psf_im, nse, tf)
 
     # same metacal image at g = 0 in both codes
     im_gs = f_gs(0.0, 0.0)
     im_jgs = np.asarray(jax.jit(f_jgs)(jnp.zeros(2)))
     diff = np.abs(im_jgs - im_gs).max() / np.abs(im_gs).max()
+    target = "PSF dilated by 1 + 2|g|" if dilate else f"Gaussian FWHM {target_fwhm}"
+    print(f"noise {noise}, target {target}")
     print(f"metacal image at g = 0: max|JAX-GalSim - GalSim| / peak = {diff:.1e}")
     assert diff < 1e-13, "GalSim and JAX-GalSim metacal images differ at g = 0"
     return img, f_gs, f_jgs, im_gs

@@ -2,27 +2,29 @@
 """Appendix figure: agreement of GalSim finite differences with JAX-GalSim autodiff
 against the finite-difference step, for the metacal shear response of Figure 3.
 
-Same noiseless galaxy and metacal steps as Figure 3. `--noise` instead uses the noisy
-galaxy (flux S/N = 20) with the noise correction (`metacal_common.setup(noise=True)`);
-it is not used in the paper (the noise does not change the autodiff point and muddies
-it). For each step h, the largest per-pixel
+Same noiseless galaxy, metacal steps and fixed target PSF (Gaussian FWHM 1.0 arcsec,
+as in `test_metacal_jax.py`) as Figure 3. For each step h, the largest per-pixel
 difference between the central-difference response, (I(h) - I(-h)) / 2h, and the
 autodiff response, relative to the largest autodiff response; the worse of g1 and g2.
 
-What sets the curve (noiseless; from the checks in the paper notes):
+Not used in the paper: `--dilate` uses the target dilated by 1 + 2|g| (as in ngmix);
+`--noise` uses the noisy galaxy (flux S/N = 20) with the noise correction, and always
+the dilation (`metacal_common.setup`).
 
-* small h (below about 3e-8): round-off of the images, divided by h; the minimum is
-  about 2e-7 at h = 3e-8;
-* larger h: central differences at g = 0 converge as O(h), about 3.7 h: both I(h) and
-  I(-h) use the target PSF dilated by 1 + 2h (the k-space interpolant of the
-  `InterpolatedImage` also has a jump in its second derivative at g = 0, but that
-  term is about 1000 times smaller);
-* around h = 1e-3: a small step above the line, from the hard cutoff of `Deconvolve`
+What sets the curve (from the checks in the paper notes):
+
+* small h (below about 3e-7): round-off of the images, divided by h; the minimum is
+  about 3e-9 at h = 3e-7;
+* larger h: central differences at g = 0 converge as O(h), about 3.7e-3 h: the k-space
+  interpolant of the `InterpolatedImage` has a jump in its second derivative at g = 0;
+* from h = 5e-4 to 1e-3: a jump to about 1.5e-3, from the hard cutoff of `Deconvolve`
   at maxk, which moves with the shear, so k-grid points switch on and off between
   I(h) and I(-h). No grid point switches for h <= 3e-4; the first ones switch at
-  h = 5e-4 (g1) and 1e-3 (g2), exactly where the curves leave the line, and moving the
-  cutoff to high k removes the step (checked in the paper notes). With noise (`--noise`) this jump is much larger (0.25-0.6 at
-  h >= 1e-3), since the deconvolved high-k noise is not damped.
+  h = 5e-4 (g1) and 1e-3 (g2), and moving the cutoff to high k removes the jump.
+
+With the dilation the O(h) term is instead about 3.7 h (FD at step h differentiates an
+image whose target is dilated by 1 + 2h), which hides the jump; with noise the jump is
+much larger (0.25-0.6 at h >= 1e-3), since the deconvolved high-k noise is not damped.
 """
 
 from pathlib import Path
@@ -30,7 +32,14 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import typer
-from metacal_common import METACAL_STEP, autodiff_response, central_fd, fd_vs_ad, setup
+from metacal_common import (
+    METACAL_STEP,
+    TARGET_FWHM,
+    autodiff_response,
+    central_fd,
+    fd_vs_ad,
+    setup,
+)
 from paper_style import COLUMN_WIDTH, set_style
 
 # ---------------------------------------------------------------- parameters
@@ -40,13 +49,20 @@ STEPS = np.logspace(-9, -1, 17)
 
 def main(
     out: Path = typer.Option(..., help="Output PNG path."),
+    target_fwhm: float = typer.Option(
+        TARGET_FWHM, help="Fixed target PSF FWHM in arcsec."
+    ),
+    dilate: bool = typer.Option(
+        False, help="Target dilated by 1 + 2|g| instead of the fixed target."
+    ),
     noise: bool = typer.Option(
-        False, help="Noisy galaxy (flux S/N = 20) with the noise correction."
+        False,
+        help="Noisy galaxy (flux S/N = 20) with the noise correction (implies --dilate).",
     ),
 ):
     set_style()
 
-    _, f_gs, f_jgs, _ = setup(noise=noise)
+    _, f_gs, f_jgs, _ = setup(noise=noise, dilate=dilate, target_fwhm=target_fwhm)
     ad = autodiff_response(f_jgs)
 
     err = np.array(

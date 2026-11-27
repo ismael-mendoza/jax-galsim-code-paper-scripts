@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Figure 3: per-pixel metacal shear response, JAX-GalSim autodiff vs GalSim finite differences.
 
-One bulge + disk galaxy (Gaussian PSF) goes through metacal (deconvolve, shear,
-reconvolve with the PSF dilated by 1 + 2|g|; see `metacal_common.py`). The response
+One bulge + disk galaxy (Gaussian PSF, FWHM 0.9 arcsec) goes through metacal
+(deconvolve, shear, reconvolve with a fixed round Gaussian target, FWHM 1.0 arcsec as
+in `test_metacal_jax.py`; see `metacal_common.py`). The response
 images dI/dg1 and dI/dg2 at g = 0 are computed:
 
 * by autodiff of the JAX-GalSim metacal image (`jax.jacfwd`);
@@ -11,6 +12,8 @@ images dI/dg1 and dI/dg2 at g = 0 are computed:
 
 Rows: g1, g2. Columns: autodiff and the finite differences (one color scale), then
 for each step the difference from autodiff relative to the largest autodiff response.
+
+`--dilate` uses the target dilated by 1 + 2|g| (as in ngmix) instead; not in the paper.
 """
 
 from pathlib import Path
@@ -22,6 +25,7 @@ from matplotlib.colors import Normalize
 from metacal_common import (
     METACAL_STEP,
     STAMP,
+    TARGET_FWHM,
     autodiff_response,
     central_fd,
     fd_vs_ad,
@@ -41,10 +45,18 @@ def step_label(h):
     return rf"$h = 10^{{{np.log10(h):.0f}}}$"
 
 
-def main(out: Path = typer.Option(..., help="Output PNG path.")):
+def main(
+    out: Path = typer.Option(..., help="Output PNG path."),
+    target_fwhm: float = typer.Option(
+        TARGET_FWHM, help="Fixed target PSF FWHM in arcsec."
+    ),
+    dilate: bool = typer.Option(
+        False, help="Target dilated by 1 + 2|g| instead of the fixed target."
+    ),
+):
     set_style()
 
-    _, f_gs, f_jgs, im0 = setup()
+    _, f_gs, f_jgs, im0 = setup(dilate=dilate, target_fwhm=target_fwhm)
     peak = np.abs(im0).max()
     ad = autodiff_response(f_jgs)
     fd = {h: np.array([central_fd(f_gs, h, i) for i in range(2)]) for h in FD_STEPS}

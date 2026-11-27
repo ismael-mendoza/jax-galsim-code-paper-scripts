@@ -56,7 +56,7 @@ $(FIG1): $(HERE)/figure1_fixed_sizes.py $(HERE)/paper_style.py
 $(FIG2): $(HERE)/figure2_full_scene.py $(HERE)/paper_style.py $(SRC)/fig2_scene.py $(SRC)/draw_scene_functions.py
 	cd $(HERE) && $(PYTHON) figure2_full_scene.py --out $@ --catsim-fpath $(CATSIM) --cache-dir $(CACHE_DIR)
 
-$(FIG3): $(HERE)/figure3_metacal_response.py $(HERE)/metacal_common.py $(HERE)/paper_style.py $(SRC)/draw_scene_functions.py
+$(FIG3): $(HERE)/figure3_metacal_response.py $(SRC)/metacal_common.py $(HERE)/paper_style.py $(SRC)/draw_scene_functions.py
 	cd $(HERE) && $(PYTHON) figure3_metacal_response.py --out $@
 
 $(FIGA1): $(HERE)/figureA1_moffat_table.py $(HERE)/paper_style.py $(SRC)/draw_scene_functions.py
@@ -65,7 +65,7 @@ $(FIGA1): $(HERE)/figureA1_moffat_table.py $(HERE)/paper_style.py $(SRC)/draw_sc
 $(FIGA2): $(HERE)/figureA2_cpu_gpu.py $(HERE)/paper_style.py $(SCENE_CPU_GPU)
 	cd $(HERE) && $(PYTHON) figureA2_cpu_gpu.py --npz $(SCENE_CPU_GPU) --out $@
 
-$(FIGA3): $(HERE)/figureA3_metacal_steps.py $(HERE)/metacal_common.py $(HERE)/paper_style.py $(SRC)/draw_scene_functions.py
+$(FIGA3): $(HERE)/figureA3_metacal_steps.py $(SRC)/metacal_common.py $(HERE)/paper_style.py $(SRC)/draw_scene_functions.py
 	cd $(HERE) && $(PYTHON) figureA3_metacal_steps.py --out $@
 
 $(TAB2): $(HERE)/table2_timing.py $(wildcard $(TIMING_RESULTS)/*/time_array_results.npz)

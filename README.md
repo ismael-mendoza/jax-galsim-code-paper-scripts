@@ -14,7 +14,8 @@ The CatSim catalog is expected at `output/OneDegSq.fits` (locally and on the clu
 
 ## Layout
 
-- `src/`: shared modules (`draw_scene_functions.py`, `fig2_scene.py`), installed into
+- `src/`: shared modules (`draw_scene_functions.py`, `fig2_scene.py`,
+  `metacal_common.py`), installed into
   the environment, so any script can import them.
 - `bin/`: timing, profiling and CPU-versus-GPU runs (GPU node).
 - `sbatch/gpu-master.sbatch`: makes all GPU results in `output/`.

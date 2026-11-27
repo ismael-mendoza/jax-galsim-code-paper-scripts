@@ -29,11 +29,11 @@ cuda = ["jax[cuda12]"]
 jax-galsim = { path = "../JAX-GalSim", editable = true }
 
 # Shared modules in src/ are installed (editable) into the environment, so
-# `from draw_scene_functions import ...` and `from fig2_scene import ...` work from
-# any script, in any folder.
+# `from draw_scene_functions import ...`, `from fig2_scene import ...` and
+# `from metacal_common import ...` work from any script, in any folder.
 [tool.setuptools]
 package-dir = { "" = "src" }
-py-modules  = ["draw_scene_functions", "fig2_scene"]
+py-modules  = ["draw_scene_functions", "fig2_scene", "metacal_common"]
 
 [build-system]
 requires      = ["setuptools>=64"]

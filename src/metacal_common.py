@@ -67,7 +67,7 @@ METACAL_STEP = 0.01  # step used by ngmix / metadetect
 # ----------------------------------------------------------------------------
 
 
-def make_images(noise=True):
+def make_images(noise=False):
     """Observed galaxy image, PSF image, and the noise-correction image (None if noiseless).
 
     All drawn by GalSim in float64; both codes get the same arrays.
@@ -172,7 +172,7 @@ def fd_vs_ad(ad, fd):
     )
 
 
-def setup(noise=True):
+def setup(noise=False):
     """Images, GalSim metacal function, JAX-GalSim metacal function, and checks at g = 0.
 
     noise=True: flux S/N = SNR plus the noise correction; noise=False: noiseless galaxy.

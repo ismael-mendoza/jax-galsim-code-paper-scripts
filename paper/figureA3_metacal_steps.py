@@ -2,20 +2,27 @@
 """Appendix figure: agreement of GalSim finite differences with JAX-GalSim autodiff
 against the finite-difference step, for the metacal shear response of Figure 3.
 
-Same galaxy and metacal steps as Figure 3, but with noise (flux S/N = 20) and the noise
-correction (`metacal_common.setup(noise=True)`). For each step h, the largest per-pixel
+Same noiseless galaxy and metacal steps as Figure 3. `--noise` instead uses the noisy
+galaxy (flux S/N = 20) with the noise correction (`metacal_common.setup(noise=True)`);
+it is not used in the paper (the noise does not change the autodiff point and muddies
+it). For each step h, the largest per-pixel
 difference between the central-difference response, (I(h) - I(-h)) / 2h, and the
 autodiff response, relative to the largest autodiff response; the worse of g1 and g2.
 
-What sets the curve (from the checks in the paper notes):
+What sets the curve (noiseless; from the checks in the paper notes):
 
-* small h (below about 1e-8): round-off of the images, divided by h;
-* intermediate h: central differences at g = 0 converge as O(h): both I(h) and I(-h)
-  use the target PSF dilated by 1 + 2h, and the k-space interpolant of the
-  `InterpolatedImage` has a jump in its second derivative at g = 0;
-* large h (about 1e-3 and above): the hard cutoff of `Deconvolve` at maxk moves with
-  the shear, so k-grid points switch on and off between I(h) and I(-h). The step used
-  by metacal (0.01) is in this regime.
+* small h (below about 3e-8): round-off of the images, divided by h; the minimum is
+  about 2e-7 at h = 3e-8;
+* larger h: central differences at g = 0 converge as O(h), about 3.7 h: both I(h) and
+  I(-h) use the target PSF dilated by 1 + 2h (the k-space interpolant of the
+  `InterpolatedImage` also has a jump in its second derivative at g = 0, but that
+  term is about 1000 times smaller);
+* around h = 1e-3: a small step above the line, from the hard cutoff of `Deconvolve`
+  at maxk, which moves with the shear, so k-grid points switch on and off between
+  I(h) and I(-h). No grid point switches for h <= 3e-4; the first ones switch at
+  h = 5e-4 (g1) and 1e-3 (g2), exactly where the curves leave the line, and moving the
+  cutoff to high k removes the step (checked in the paper notes). With noise (`--noise`) this jump is much larger (0.25-0.6 at
+  h >= 1e-3), since the deconvolved high-k noise is not damped.
 """
 
 from pathlib import Path
@@ -31,10 +38,15 @@ STEPS = np.logspace(-9, -1, 17)
 # ----------------------------------------------------------------------------
 
 
-def main(out: Path = typer.Option(..., help="Output PNG path.")):
+def main(
+    out: Path = typer.Option(..., help="Output PNG path."),
+    noise: bool = typer.Option(
+        False, help="Noisy galaxy (flux S/N = 20) with the noise correction."
+    ),
+):
     set_style()
 
-    _, f_gs, f_jgs, _ = setup(noise=True)
+    _, f_gs, f_jgs, _ = setup(noise=noise)
     ad = autodiff_response(f_jgs)
 
     err = np.array(

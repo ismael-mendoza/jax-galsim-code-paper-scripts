@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Figure 3: per-pixel metacal shear response, JAX-GalSim autodiff vs GalSim finite differences.
 
-One noiseless bulge + disk galaxy (Gaussian PSF) goes through metacal (deconvolve, shear,
+One bulge + disk galaxy (Gaussian PSF) goes through metacal (deconvolve, shear,
 reconvolve with the PSF dilated by 1 + 2|g|; see `metacal_common.py`). The response
 images dI/dg1 and dI/dg2 at g = 0 are computed:
 
@@ -11,9 +11,6 @@ images dI/dg1 and dI/dg2 at g = 0 are computed:
 
 Rows: g1, g2. Columns: autodiff and the finite differences (one color scale), then
 for each step the difference from autodiff relative to the largest autodiff response.
-
-Also prints the agreement for the noisy galaxy (flux S/N = 20, with the noise
-correction), quoted in the text.
 """
 
 from pathlib import Path
@@ -44,30 +41,16 @@ def step_label(h):
     return rf"$h = 10^{{{np.log10(h):.0f}}}$"
 
 
-def responses(noise):
-    _, f_gs, f_jgs, im0 = setup(noise)
-    ad = autodiff_response(f_jgs)
-    fd = {h: np.array([central_fd(f_gs, h, i) for i in range(2)]) for h in FD_STEPS}
-    return ad, fd, np.abs(im0).max()
-
-
 def main(out: Path = typer.Option(..., help="Output PNG path.")):
     set_style()
 
-    # numbers for the text: noisy galaxy with the noise correction
-    ad_n, fd_n, _ = responses(noise=True)
-    for h in FD_STEPS:
-        e = fd_vs_ad(ad_n, fd_n[h])
-        print(
-            f"noisy, {h:.0e}: max|FD - AD| / max|AD| = {e[0]:.1e} (g1), {e[1]:.1e} (g2)"
-        )
-
-    ad, fd, peak = responses(noise=False)
+    _, f_gs, f_jgs, im0 = setup()
+    peak = np.abs(im0).max()
+    ad = autodiff_response(f_jgs)
+    fd = {h: np.array([central_fd(f_gs, h, i) for i in range(2)]) for h in FD_STEPS}
     for h in FD_STEPS:
         e = fd_vs_ad(ad, fd[h])
-        print(
-            f"noiseless, {h:.0e}: max|FD - AD| / max|AD| = {e[0]:.1e} (g1), {e[1]:.1e} (g2)"
-        )
+        print(f"{h:.0e}: max|FD - AD| / max|AD| = {e[0]:.1e} (g1), {e[1]:.1e} (g2)")
 
     half = STAMP / 2
     extent = (-half, half, -half, half)
